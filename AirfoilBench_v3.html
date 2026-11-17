@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airfoil Bench — NACA Catalogue &amp; Flow Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f6;
+    --bg2:#e5ebf1;
+    --panel:#ffffff;
+    --panel-hi:#f5f8fb;
+    --line:#d7e0e8;
+    --text:#152029;
+    --muted:#54677a;
+    --dim:#788ba0;
+    --cyan:#0e8f95;
+    --cyan-soft:#12a6ac;
+    --amber:#b8720a;
+    --amber-dim:#e3ab5c;
+    --hi:#c8433a;
+    --lo:#2f6fc4;
+    --mono: 'JetBrains Mono', monospace;
+    --disp: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #dfe9ee 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #e3ede4 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--disp);
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px;
+    background:rgba(238,242,246,0.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px; cursor:pointer;}
+  .brand-mark{
+    width:30px;height:30px;flex:none;
+  }
+  .brand-text{font-weight:700; font-size:17px; letter-spacing:0.2px;}
+  .brand-text b{color:var(--cyan); font-weight:700;}
+  .brand-sub{font-family:var(--mono); font-size:10px; color:var(--dim); letter-spacing:1.5px; text-transform:uppercase; margin-top:1px;}
+  .topbar-right{display:flex; align-items:center; gap:14px;}
+  .readout{
+    font-family:var(--mono); font-size:11px; color:var(--dim);
+    display:flex; gap:16px;
+  }
+  .readout span b{color:var(--muted); font-weight:500;}
+
+  /* ---------- layout ---------- */
+  .view{display:none; max-width:1180px; margin:0 auto; padding:0 28px 80px;}
+  .view.active{display:block;}
+
+  /* ---------- catalogue hero ---------- */
+  .hero{
+    padding:64px 0 40px;
+    display:grid; grid-template-columns:1.15fr 1fr; gap:48px; align-items:center;
+  }
+  @media (max-width:860px){ .hero{grid-template-columns:1fr; padding-top:36px;} }
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:2.5px; text-transform:uppercase;
+    color:var(--amber); margin-bottom:16px; display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:''; width:22px; height:1px; background:var(--amber-dim);}
+  h1{
+    font-size:clamp(32px,4.2vw,50px); line-height:1.05; margin:0 0 18px; font-weight:700; letter-spacing:-0.5px;
+  }
+  h1 em{font-style:normal; color:var(--cyan);}
+  .hero p{color:var(--muted); font-size:15.5px; line-height:1.65; max-width:46ch; margin:0 0 26px;}
+  .hero-stats{display:flex; gap:28px; font-family:var(--mono);}
+  .hero-stats div b{display:block; font-size:22px; color:var(--text); font-weight:600;}
+  .hero-stats div span{font-size:10.5px; color:var(--dim); letter-spacing:0.5px; text-transform:uppercase;}
+
+  .hero-viz{
+    position:relative; aspect-ratio:4/3; border:1px solid var(--line); border-radius:10px;
+    background:linear-gradient(180deg,#f7fafc,#eef3f6);
+    overflow:hidden;
+  }
+  .hero-viz svg{width:100%; height:100%; display:block;}
+
+  /* ---------- custom code entry ---------- */
+  .custom-row{
+    display:flex; gap:10px; align-items:center; margin-top:28px; flex-wrap:wrap;
+  }
+  .custom-row label{font-family:var(--mono); font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:1px;}
+  .code-input{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:15px; letter-spacing:2px; padding:9px 14px; border-radius:6px;
+    width:120px; text-align:center;
+  }
+  .code-input:focus{outline:none; border-color:var(--cyan);}
+  .btn{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.5px; text-transform:uppercase;
+    background:var(--cyan); color:#06171a; border:none; padding:10px 18px; border-radius:6px;
+    cursor:pointer; font-weight:700; transition:filter 0.15s ease, transform 0.1s ease;
+  }
+  .btn:hover{filter:brightness(1.1);}
+  .btn:active{transform:translateY(1px);}
+  .btn.ghost{
+    background:transparent; color:var(--muted); border:1px solid var(--line);
+  }
+  .btn.ghost:hover{border-color:var(--cyan); color:var(--cyan);}
+  .code-hint{font-family:var(--mono); font-size:10.5px; color:var(--dim);}
+  .code-error{font-family:var(--mono); font-size:11px; color:var(--hi); min-height:14px; width:100%;}
+
+  /* ---------- catalogue grid ---------- */
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; margin:56px 0 20px; flex-wrap:wrap; gap:8px;}
+  .section-head h2{font-size:19px; margin:0; font-weight:600;}
+  .section-head .count{font-family:var(--mono); font-size:11px; color:var(--dim);}
+
+  .cat-toolbar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .search-input{
+    flex:1; min-width:200px; background:var(--panel); border:1px solid var(--line); color:var(--text);
+    font-family:var(--disp); font-size:13px; padding:9px 14px; border-radius:6px;
+  }
+  .search-input:focus{outline:none; border-color:var(--cyan);}
+  .sort-select{
+    background:var(--panel); border:1px solid var(--line); color:var(--muted);
+    font-family:var(--mono); font-size:11.5px; padding:9px 12px; border-radius:6px; cursor:pointer;
+  }
+  .cat-tabs{display:flex; gap:6px; margin-bottom:24px; flex-wrap:wrap;}
+  .cat-tab{
+    font-family:var(--mono); font-size:11px; padding:7px 13px; border-radius:100px;
+    border:1px solid var(--line); background:transparent; color:var(--dim); cursor:pointer;
+    letter-spacing:0.4px;
+  }
+  .cat-tab.active{background:var(--panel-hi); color:var(--cyan); border-color:var(--cyan);}
+  .cat-tab:hover:not(.active){color:var(--muted); border-color:var(--dim);}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px;}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px;
+    cursor:pointer; transition:border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    position:relative; overflow:hidden;
+  }
+  .card:hover{border-color:var(--cyan); transform:translateY(-2px); background:var(--panel-hi);}
+  .card-code{font-family:var(--mono); font-size:20px; font-weight:700; letter-spacing:1px;}
+  .card-name{font-size:12.5px; color:var(--muted); margin-top:2px; min-height:16px;}
+  .card-aircraft{font-size:10.5px; color:var(--dim); font-style:italic; margin-top:2px; min-height:14px;}
+  .card-shape{width:100%; height:64px; margin:14px 0 12px;}
+  .card-shape svg{width:100%; height:100%; display:block; overflow:visible;}
+  .card-tags{display:flex; gap:6px; flex-wrap:wrap;}
+  .tag{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase;
+    color:var(--dim); border:1px solid var(--line); border-radius:4px; padding:2px 6px;
+  }
+
+  /* ---------- detail view ---------- */
+  .detail-top{display:flex; align-items:center; gap:14px; padding:24px 0 8px; flex-wrap:wrap;}
+  .back-btn{
+    font-family:var(--mono); font-size:11px; color:var(--dim); background:none; border:none; cursor:pointer;
+    display:flex; align-items:center; gap:6px; padding:6px 0;
+  }
+  .back-btn:hover{color:var(--cyan);}
+  .detail-title{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .detail-title h2{font-family:var(--mono); font-size:26px; margin:0; font-weight:700; letter-spacing:1px;}
+  .detail-title span{color:var(--muted); font-size:14px;}
+
+  .detail-grid{display:grid; grid-template-columns:1fr 300px; gap:20px; margin-top:20px;}
+  @media (max-width:920px){ .detail-grid{grid-template-columns:1fr;} }
+
+  .viz-panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px;
+  }
+  .viz-canvas-wrap{position:relative; border-radius:8px; overflow:hidden; background:#f7fafc; border:1px solid var(--line);}
+  canvas{width:100%; display:block;}
+  .viz-legend{
+    display:flex; align-items:center; justify-content:space-between; margin-top:12px; flex-wrap:wrap; gap:10px;
+  }
+  .cp-scale{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10px; color:var(--dim);}
+  .cp-bar{width:120px; height:8px; border-radius:4px; background:linear-gradient(90deg, var(--lo), #223244 50%, var(--hi));}
+  .stall-flag{
+    font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:5px; letter-spacing:0.5px;
+    background:rgba(255,180,84,0.12); color:var(--amber); border:1px solid var(--amber-dim); display:none;
+  }
+  .stall-flag.show{display:inline-block;}
+
+  .controls{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px;
+    display:flex; flex-direction:column; gap:18px; height:fit-content;
+  }
+  .ctrl-section-label{
+    font-family:var(--mono); font-size:10px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--amber); margin-bottom:-4px; display:flex; align-items:center; gap:8px;
+  }
+  .ctrl-section-label::after{content:''; flex:1; height:1px; background:var(--line);}
+  .ctrl-group label{
+    display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px;
+    color:var(--dim); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px;
+  }
+  .ctrl-group label b{color:var(--cyan); font-weight:600; text-transform:none; letter-spacing:0;}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px;
+    background:var(--line); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+    background:var(--cyan); cursor:pointer; border:2px solid #06171a; box-shadow:0 0 0 1px var(--cyan);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px; height:15px; border-radius:50%; background:var(--cyan); cursor:pointer; border:2px solid #06171a;
+  }
+  .toggle-row{display:flex; gap:8px;}
+  .toggle-btn{
+    flex:1; font-family:var(--mono); font-size:10.5px; padding:8px 6px; border-radius:6px;
+    background:var(--bg2); border:1px solid var(--line); color:var(--dim); cursor:pointer; text-align:center;
+  }
+  .toggle-btn.active{color:var(--cyan); border-color:var(--cyan); background:rgba(14,143,149,0.08);}
+
+  .stats-block{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-top:4px;}
+  .stat{padding-top:14px;}
+  .stat .k{font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.6px;}
+  .stat .v{font-family:var(--mono); font-size:19px; font-weight:600; color:var(--text); margin-top:3px;}
+  .stat .v.warn{color:var(--amber);}
+  .disclaim{
+    font-family:var(--mono); font-size:10px; color:var(--dim); line-height:1.6; padding-top:12px; border-top:1px solid var(--line);
+  }
+
+  .compare-row{display:flex; gap:10px; margin-top:16px;}
+
+  .info-panel{
+    margin-top:20px; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  }
+  .info-toggle{
+    width:100%; text-align:left; background:none; border:none; cursor:pointer;
+    padding:16px 18px; font-family:var(--mono); font-size:12px; letter-spacing:0.5px; text-transform:uppercase;
+    color:var(--muted); display:flex; justify-content:space-between; align-items:center;
+  }
+  .info-body{
+    display:none; padding:0 18px 18px; font-size:13.5px; line-height:1.7; color:var(--muted);
+  }
+  .info-body.open{display:block;}
+  .info-body p{margin:0 0 12px;}
+  .info-body b{color:var(--text);}
+
+  .compare-panel, .polar-panel{
+    display:none; margin-top:20px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px;
+  }
+  .compare-panel.open, .polar-panel.open{display:block;}
+  .compare-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .compare-head h3, .polar-panel h3{font-size:15px; margin:0 0 14px; font-weight:600;}
+  .compare-controls{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .compare-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:700px){ .compare-grid{grid-template-columns:1fr;} }
+  .compare-side{border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--panel-hi);}
+  .compare-side svg{width:100%; height:auto; display:block;}
+  .compare-stats{display:flex; gap:14px; margin-top:8px; font-family:var(--mono); font-size:11px; color:var(--muted); flex-wrap:wrap;}
+  .compare-stats b{color:var(--text);}
+
+  .polar-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:700px){ .polar-grid{grid-template-columns:1fr;} }
+  .polar-card{border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--panel-hi);}
+  .polar-label{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--dim); margin-bottom:6px;}
+  .polar-card svg{width:100%; height:auto; display:block;}
+
+  footer{
+    text-align:center; padding:40px 0 20px; color:var(--dim); font-family:var(--mono); font-size:10.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand" onclick="showCatalogue()">
+    <svg class="brand-mark" viewBox="0 0 30 30"><path d="M2 17 C 8 12, 14 12, 15 15 C 16 12, 22 12, 28 17 C 22 16, 16 17, 15 20 C 14 17, 8 16, 2 17 Z" fill="var(--cyan)"/></svg>
+    <div><div class="brand-text">Airfoil<b>Bench</b></div><div class="brand-sub">NACA 4 &amp; 5-digit catalogue</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="readout" id="topReadout"></div>
+  </div>
+</div>
+
+<!-- ===================== CATALOGUE VIEW ===================== -->
+<div class="view active" id="view-catalogue">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Vortex-panel flow solver</div>
+      <h1>Every airfoil has a <em>fingerprint</em>. Go trace it.</h1>
+      <p>Pick a NACA profile, set an angle of attack, and watch the streamlines bend around it — pressure, lift, wake vortices and stall computed live, not looked up.</p>
+      <div class="hero-stats">
+        <div><b id="statCount">0</b><span>Profiles</span></div>
+        <div><b>4 &amp; 5-digit</b><span>NACA family</span></div>
+        <div><b>Live</b><span>Panel solve</span></div>
+      </div>
+      <div class="custom-row">
+        <label for="customCode">Any code</label>
+        <input class="code-input" id="customCode" maxlength="5" placeholder="2412" autocomplete="off">
+        <button class="btn" onclick="openCustom()">Open airfoil</button>
+        <span class="code-hint">4 digits (2412) or 5 digits (23012)</span>
+      </div>
+      <div class="code-error" id="customError"></div>
+    </div>
+    <div class="hero-viz"><svg id="heroSvg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Catalogue</h2>
+    <span class="count" id="gridCount"></span>
+  </div>
+  <div class="cat-toolbar">
+    <input class="search-input" id="catSearch" placeholder="Search code, name, or aircraft…" autocomplete="off">
+    <select class="sort-select" id="catSort">
+      <option value="default">Sort: default</option>
+      <option value="ld">Sort: best L/D (4°)</option>
+      <option value="stall">Sort: highest stall angle</option>
+      <option value="thin">Sort: thinnest first</option>
+      <option value="thick">Sort: thickest first</option>
+    </select>
+  </div>
+  <div class="cat-tabs" id="catTabs"></div>
+  <div class="grid" id="catalogueGrid"></div>
+
+  <footer>AirfoilBench — geometry from exact NACA 4 &amp; 5-digit equations · lift &amp; flow from a lumped-vortex/source panel solve with ground-effect images and an unsteady wake · aerodynamic coefficients are approximate, not wind-tunnel data</footer>
+</div>
+
+<!-- ===================== DETAIL VIEW ===================== -->
+<div class="view" id="view-detail">
+  <div class="detail-top">
+    <button class="back-btn" onclick="showCatalogue()">&larr; Catalogue</button>
+  </div>
+  <div class="detail-title">
+    <h2 id="detailCode">0000</h2>
+    <span id="detailName">—</span>
+  </div>
+
+  <div class="detail-grid">
+    <div class="viz-panel">
+      <div class="viz-canvas-wrap">
+        <canvas id="flowCanvas" width="900" height="500"></canvas>
+      </div>
+      <div class="viz-legend">
+        <div class="cp-scale">
+          <span>Suction (low P)</span><div class="cp-bar"></div><span>High P</span>
+        </div>
+        <div class="stall-flag" id="stallFlag">⚠ approaching stall — flow separating</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl-section-label">Flow conditions</div>
+      <div class="ctrl-group">
+        <label>Angle of attack <b id="aoaVal">4°</b></label>
+        <input type="range" id="aoaSlider" min="-16" max="20" step="1" value="4">
+      </div>
+      <div class="ctrl-group">
+        <label>Wind speed <b id="windVal">15 m/s</b></label>
+        <input type="range" id="windSlider" min="0.3" max="2.4" step="0.1" value="1">
+      </div>
+      <div class="ctrl-group">
+        <label>Flap deflection <b id="flapVal">0°</b></label>
+        <input type="range" id="flapSlider" min="0" max="35" step="1" value="0">
+      </div>
+      <div class="ctrl-group">
+        <label>Ground proximity <b id="groundVal">Off</b></label>
+        <input type="range" id="groundSlider" min="0" max="5" step="1" value="0">
+      </div>
+
+      <div class="ctrl-section-label">Display</div>
+      <div class="ctrl-group">
+        <div class="toggle-row">
+          <button class="toggle-btn active" id="toggleStream" onclick="toggleLayer('stream')">Streamlines</button>
+          <button class="toggle-btn active" id="togglePressure" onclick="toggleLayer('pressure')">Pressure</button>
+        </div>
+      </div>
+      <div class="ctrl-group">
+        <div class="toggle-row">
+          <button class="toggle-btn" id="togglePolar" onclick="togglePolar()">Polar charts</button>
+          <button class="toggle-btn" id="toggleCompare" onclick="openCompare()">Compare mode</button>
+        </div>
+      </div>
+
+      <div class="ctrl-section-label">Results</div>
+      <div class="stats-block">
+        <div class="stat"><div class="k">Lift coeff. Cl</div><div class="v" id="statCl">0.00</div></div>
+        <div class="stat"><div class="k">Drag coeff. Cd</div><div class="v" id="statCd">0.00</div></div>
+        <div class="stat"><div class="k">L / D</div><div class="v" id="statLD">0</div></div>
+        <div class="stat"><div class="k">Est. stall</div><div class="v" id="statStall">—</div></div>
+        <div class="stat"><div class="k">Lift / span</div><div class="v" id="statLift">0 N/m</div></div>
+        <div class="stat"><div class="k">Dyn. pressure</div><div class="v" id="statQ">0 Pa</div></div>
+        <div class="stat"><div class="k">Reynolds no.</div><div class="v" id="statRe">0</div></div>
+        <div class="stat"><div class="k">Share</div><div class="v"><button class="btn ghost" style="padding:4px 10px;font-size:10px;" onclick="copyShareLink(event)">Copy link</button></div></div>
+      </div>
+      <div class="disclaim">Cl and the flow field come from a live lumped-vortex/source panel solve with an unsteady discrete-vortex wake and ground-effect image vortices. Cd, L/D and stall angle are empirical estimates (turbulent flat-plate skin friction + simplified stall/flap correlations) for teaching intuition — not substitutes for XFOIL or tunnel data. Lift/span assumes a 1 m chord. Ground proximity is modeled as a plane parallel to the chord, not true horizontal ground.</div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <button class="info-toggle" onclick="toggleInfo()">How this works <span id="infoCaret">▾</span></button>
+    <div class="info-body" id="infoBody">
+      <p><b>Geometry:</b> exact NACA 4-digit and 5-digit closed-form equations generate the camber line and thickness envelope. A flap is modeled as a rigid rotation of the mean camber line aft of a hinge — the classic thin-airfoil flap treatment.</p>
+      <p><b>Lift &amp; pressure:</b> a lumped-vortex/source panel method (validated against thin-airfoil theory) solves for the bound circulation. Cp is sampled from the resulting velocity field just off the surface.</p>
+      <p><b>Wake:</b> discrete vortices shed periodically from the trailing edge (or an estimated separation point past stall), alternating in sign like a von Kármán street, then advected by the combined field of every other vortex — a real (if simplified) unsteady vortex method, not a scripted animation.</p>
+      <p><b>Ground effect:</b> handled by the classic method of images — a mirrored set of vortices/sources below a ground plane enforces the zero-flow boundary there, which is exactly why real aircraft feel a lift boost close to the runway.</p>
+      <p><b>What's approximate:</b> Cd, stall angle and L/D come from empirical correlations (turbulent flat-plate skin friction, Reynolds scaling), not a boundary-layer solve — treat them as reasonable teaching estimates, not XFOIL-grade numbers.</p>
+    </div>
+  </div>
+
+  <div class="compare-panel" id="comparePanel">
+    <div class="compare-head">
+      <h3>Compare two airfoils</h3>
+      <button class="back-btn" onclick="closeCompare()">✕ Close</button>
+    </div>
+    <div class="compare-controls">
+      <select id="compareA" class="code-input" style="width:auto;"></select>
+      <span class="code-hint">vs</span>
+      <select id="compareB" class="code-input" style="width:auto;"></select>
+      <span class="code-hint">— snapshot at the current AoA / wind speed / flap (not animated)</span>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-side">
+        <svg id="compareSvgA" viewBox="0 0 420 260"></svg>
+        <div class="compare-stats" id="compareStatsA"></div>
+      </div>
+      <div class="compare-side">
+        <svg id="compareSvgB" viewBox="0 0 420 260"></svg>
+        <div class="compare-stats" id="compareStatsB"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="polar-panel" id="polarPanel">
+    <h3>Polars — current airfoil across the alpha range</h3>
+    <div class="polar-grid">
+      <div class="polar-card"><div class="polar-label">Cl vs α</div><svg id="polarCl" viewBox="0 0 380 240"></svg></div>
+      <div class="polar-card"><div class="polar-label">Drag polar (Cd vs Cl)</div><svg id="polarDrag" viewBox="0 0 380 240"></svg></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* =========================================================
+   NACA 4-digit geometry
+   ========================================================= */
+function nacaParams(code){
+  if(code.length===5){
+    const L=parseInt(code[0]), P=parseInt(code[1]), Q=parseInt(code[2]);
+    const t=parseInt(code.slice(3))/100;
+    const p = P*0.05;
+    const K1_TABLE = {1:361.4,2:51.64,3:15.957,4:6.643,5:3.230};
+    const k1 = K1_TABLE[P] || 15.957;
+    return {type:'5digit', p, k1, t, clIdeal:L*0.15, reflex:Q===1};
+  }
+  const m = parseInt(code[0])/100;
+  const p = parseInt(code[1])/10;
+  const t = parseInt(code.slice(2))/100;
+  return {type:'4digit', m, p, t};
+}
+function camberBase(x, prof){
+  if(prof.type==='5digit'){
+    const {p,k1}=prof;
+    if(x<p) return {yc:(k1/6)*(x**3-3*p*x*x+p*p*(3-p)*x), dyc:(k1/6)*(3*x*x-6*p*x+p*p*(3-p))};
+    return {yc:(k1*p**3/6)*(1-x), dyc:-(k1*p**3)/6};
+  }
+  const {m,p} = prof;
+  if(m===0||p===0) return {yc:0, dyc:0};
+  if(x<p) return {yc: m/(p*p)*(2*p*x-x*x), dyc: 2*m/(p*p)*(p-x)};
+  return {yc: m/((1-p)*(1-p))*((1-2*p)+2*p*x-x*x), dyc: 2*m/((1-p)*(1-p))*(p-x)};
+}
+// simple flap: rigid downward rotation of the mean camber line aft of the hinge
+// (thin-airfoil flap model — this is what a numerical panel solve of a "kinked"
+// camberline naturally reduces to, no separate empirical correction needed)
+function camberEff(x, prof, flapDeg, hinge){
+  if(!flapDeg || x<hinge) return camberBase(x,prof);
+  const flapRad = flapDeg*Math.PI/180;
+  const base = camberBase(hinge,prof);
+  return { yc: base.yc-(x-hinge)*Math.tan(flapRad), dyc: base.dyc-Math.tan(flapRad) };
+}
+function maxCamberPercent(prof){
+  let m=0;
+  for(let i=0;i<=50;i++){ const c=camberBase(i/50, prof); if(Math.abs(c.yc)>m) m=Math.abs(c.yc); }
+  return m*100;
+}
+function thicknessAt(x,t){
+  const xx = Math.max(x,1e-6);
+  return 5*t*(0.2969*Math.sqrt(xx)-0.1260*xx-0.3516*xx*xx+0.2843*xx*xx*xx-0.1015*xx*xx*xx*xx);
+}
+function dThicknessAt(x,t){
+  const xx = Math.max(x,1e-4);
+  return 5*t*(0.2969*0.5/Math.sqrt(xx)-0.1260-0.7032*xx+0.8529*xx*xx-0.4060*xx*xx*xx);
+}
+function surfacePoints(code, n, flapDeg, hinge){
+  const prof = nacaParams(code);
+  flapDeg = flapDeg||0; hinge = hinge===undefined?0.75:hinge;
+  const upper=[], lower=[];
+  for(let i=0;i<=n;i++){
+    const beta = Math.PI*i/n;
+    const x = (1-Math.cos(beta))/2;
+    const yt = thicknessAt(x,prof.t);
+    const {yc,dyc} = camberEff(x,prof,flapDeg,hinge);
+    const th = Math.atan(dyc);
+    upper.push([x-yt*Math.sin(th), yc+yt*Math.cos(th)]);
+    lower.push([x+yt*Math.sin(th), yc-yt*Math.cos(th)]);
+  }
+  return {upper, lower, prof};
+}
+
+/* =========================================================
+   Lumped-vortex + thickness-source solver (validated vs thin airfoil theory)
+   ========================================================= */
+function solveAirfoil(code, alphaDeg, N, windSpeedArg, flapDeg, hinge, groundH){
+  N = N || 44;
+  windSpeedArg = windSpeedArg===undefined ? 1 : windSpeedArg;
+  flapDeg = flapDeg||0; hinge = hinge===undefined?0.75:hinge;
+  groundH = groundH||0; // 0 = no ground effect; else height above ground in chords (plane parallel to chord — a simplification, see notes)
+  const prof = nacaParams(code);
+  const alpha = alphaDeg*Math.PI/180;
+  const edges=[];
+  for(let i=0;i<=N;i++){
+    const beta = Math.PI*i/N;
+    edges.push((1-Math.cos(beta))/2);
+  }
+  const vx=[],vy=[],cx=[],cy=[],nx=[],ny=[],sx=[],sy=[],Q=[];
+  for(let j=0;j<N;j++){
+    const x1=edges[j], x2=edges[j+1];
+    const c1=camberEff(x1,prof,flapDeg,hinge), c2=camberEff(x2,prof,flapDeg,hinge);
+    const y1=c1.yc, y2=c2.yc;
+    vx.push(x1+0.25*(x2-x1)); vy.push(y1+0.25*(y2-y1));
+    const xcp = x1+0.75*(x2-x1);
+    cx.push(xcp); cy.push(y1+0.75*(y2-y1));
+    const {dyc} = camberEff(xcp,prof,flapDeg,hinge);
+    const th = Math.atan(dyc);
+    nx.push(-Math.sin(th)); ny.push(Math.cos(th));
+
+    // thickness source panel (non-lifting), placed at panel midpoint
+    const xm = (x1+x2)/2, cm = camberEff(xm,prof,flapDeg,hinge);
+    sx.push(xm); sy.push(cm.yc);
+    const dT = 2*dThicknessAt(xm,prof.t);
+    Q.push(dT*(x2-x1)); // source strength = Vinf * dT/dx * panel_length (Vinf applied later)
+  }
+
+  const A = Array.from({length:N},()=>new Array(N).fill(0));
+  const RHS = new Array(N).fill(0);
+  const Vinf = windSpeedArg;
+  for(let i=0;i<N;i++){
+    for(let j=0;j<N;j++){
+      const dx=cx[i]-vx[j], dy=cy[i]-vy[j];
+      const r2=dx*dx+dy*dy || 1e-9;
+      let u=-(1/(2*Math.PI))*dy/r2;
+      let v=(1/(2*Math.PI))*dx/r2;
+      if(groundH>0){
+        // image vortex (opposite sign) reflected below the ground plane at y=-groundH
+        const vyImg = -2*groundH - vy[j];
+        const dxg=cx[i]-vx[j], dyg=cy[i]-vyImg;
+        const r2g=dxg*dxg+dyg*dyg || 1e-9;
+        u += (1/(2*Math.PI))*dyg/r2g;
+        v += -(1/(2*Math.PI))*dxg/r2g;
+      }
+      A[i][j]=u*nx[i]+v*ny[i];
+    }
+    // source contribution goes into RHS (known, since source strengths fixed by thickness/Vinf)
+    let srcU=0, srcV=0;
+    for(let j=0;j<N;j++){
+      const dx=cx[i]-sx[j], dy=cy[i]-sy[j];
+      const r2=dx*dx+dy*dy || 1e-9;
+      const q = Q[j]*Vinf;
+      srcU += (q/(2*Math.PI))*dx/r2;
+      srcV += (q/(2*Math.PI))*dy/r2;
+      if(groundH>0){
+        // image source (same sign) reflected below the ground plane
+        const syImg = -2*groundH - sy[j];
+        const dxg=cx[i]-sx[j], dyg=cy[i]-syImg;
+        const r2g=dxg*dxg+dyg*dyg || 1e-9;
+        srcU += (q/(2*Math.PI))*dxg/r2g;
+        srcV += (q/(2*Math.PI))*dyg/r2g;
+      }
+    }
+    RHS[i] = -(Vinf*Math.cos(alpha)*nx[i]+Vinf*Math.sin(alpha)*ny[i]) - (srcU*nx[i]+srcV*ny[i]);
+  }
+  // Gaussian elimination
+  for(let col=0; col<N; col++){
+    let piv=col;
+    for(let r=col+1;r<N;r++) if(Math.abs(A[r][col])>Math.abs(A[piv][col])) piv=r;
+    [A[col],A[piv]]=[A[piv],A[col]]; [RHS[col],RHS[piv]]=[RHS[piv],RHS[col]];
+    for(let r=col+1;r<N;r++){
+      const f=A[r][col]/A[col][col];
+      for(let c=col;c<N;c++) A[r][c]-=f*A[col][c];
+      RHS[r]-=f*RHS[col];
+    }
+  }
+  const gamma=new Array(N).fill(0);
+  for(let r=N-1;r>=0;r--){
+    let s=RHS[r];
+    for(let c=r+1;c<N;c++) s-=A[r][c]*gamma[c];
+    gamma[r]=s/A[r][r];
+  }
+  const circTotal = gamma.reduce((a,b)=>a+b,0);
+  const Cl = -2*circTotal/Vinf;
+
+  return {vx,vy,gamma,sx,sy,Q,alpha,Vinf,prof,Cl,flapDeg,hinge,groundH};
+}
+
+function velocityAt(sol, x, y, smooth, wake){
+  let u = sol.Vinf*Math.cos(sol.alpha);
+  let v = sol.Vinf*Math.sin(sol.alpha);
+  const core = smooth ? 0.00055 : 1e-7; // regularized "vortex core" avoids jagged kinks when tracing streamlines
+  const gh = sol.groundH||0;
+  for(let j=0;j<sol.vx.length;j++){
+    const dx=x-sol.vx[j], dy=y-sol.vy[j];
+    const r2=Math.max(dx*dx+dy*dy, core);
+    u += -(sol.gamma[j]/(2*Math.PI))*dy/r2;
+    v += (sol.gamma[j]/(2*Math.PI))*dx/r2;
+    if(gh>0){
+      const dyg = y-(-2*gh-sol.vy[j]);
+      const r2g = Math.max(dx*dx+dyg*dyg, core);
+      u += (sol.gamma[j]/(2*Math.PI))*dyg/r2g;
+      v += -(sol.gamma[j]/(2*Math.PI))*dx/r2g;
+    }
+  }
+  for(let j=0;j<sol.sx.length;j++){
+    const dx=x-sol.sx[j], dy=y-sol.sy[j];
+    const r2=Math.max(dx*dx+dy*dy, core);
+    const q = sol.Q[j]*sol.Vinf;
+    u += (q/(2*Math.PI))*dx/r2;
+    v += (q/(2*Math.PI))*dy/r2;
+    if(gh>0){
+      const dyg = y-(-2*gh-sol.sy[j]);
+      const r2g = Math.max(dx*dx+dyg*dyg, core);
+      u += (q/(2*Math.PI))*dx/r2g;
+      v += (q/(2*Math.PI))*dyg/r2g;
+    }
+  }
+  if(wake){
+    const wcore = 0.0009;
+    for(let j=0;j<wake.length;j++){
+      const wv = wake[j];
+      const dx=x-wv.x, dy=y-wv.y;
+      const r2=Math.max(dx*dx+dy*dy, wcore);
+      u += -(wv.gamma/(2*Math.PI))*dy/r2;
+      v += (wv.gamma/(2*Math.PI))*dx/r2;
+    }
+  }
+  return [u,v];
+}
+
+function insideAirfoil(x,y,prof,flapDeg,hinge){
+  if(x<-0.01||x>1.01) return false;
+  const xc = Math.min(Math.max(x,0),1);
+  const yt = thicknessAt(xc, prof.t);
+  const {yc} = camberEff(xc, prof, flapDeg, hinge);
+  return y > yc-yt*1.08 && y < yc+yt*1.08;
+}
+
+function estStats(code, alphaDeg, Cl, windSpeed, flapDeg){
+  const prof = nacaParams(code);
+  const tPct = prof.t*100, mPct = maxCamberPercent(prof);
+  flapDeg = flapDeg||0;
+
+  // Reynolds number from actual wind speed (chord = 1 m, air at ~15°C)
+  const vActual = Math.max(windSpeed||1, 0.05)*15;
+  const nu = 1.5e-5;
+  const Re = vActual*1.0/nu;
+
+  // turbulent flat-plate skin friction correlation (Cf ≈ 0.074/Re^0.2), doubled for
+  // wetted area top+bottom and scaled up a little with thickness (form drag)
+  const cf = 0.074/Math.pow(Re,0.2);
+  const cd0 = 2*cf*(1+1.6*prof.t) + 0.0018*flapDeg/10; // flap hinge/gap adds parasite drag
+
+  // higher Re delays stall a bit (thinner, more energetic boundary layer); flaps
+  // reduce the extra AoA margin somewhat since the section is already working harder
+  const reBoost = Math.min(3, Math.max(-2, (Math.log10(Re)-6)*2.5));
+  const stallAngle = 10.5 + 0.28*tPct - 0.12*mPct + reBoost - 0.06*flapDeg;
+  const overStall = Math.abs(alphaDeg) > stallAngle;
+
+  let cd = cd0 + 0.011*Cl*Cl;
+  if(overStall){
+    const excess = Math.abs(alphaDeg)-stallAngle;
+    cd += 0.02*excess*excess/10 + 0.03;
+  }
+  const ld = cd>0 ? Cl/cd : 0;
+  return {stallAngle, overStall, cd, ld, Re};
+}
+
+/* =========================================================
+   Memoized solve (cheap since inputs are pure) — used by
+   catalogue sorting, polar charts, and compare mode so we're
+   not re-solving the same (code, alpha, ...) combo repeatedly
+   ========================================================= */
+const solveCache = new Map();
+function solveCached(code, alphaDeg, N, Vinf, flapDeg, hinge, groundH){
+  const key = [code,alphaDeg,N,Vinf,flapDeg||0,hinge||0.75,groundH||0].join('|');
+  if(solveCache.has(key)) return solveCache.get(key);
+  const sol = solveAirfoil(code, alphaDeg, N, Vinf, flapDeg, hinge, groundH);
+  if(solveCache.size>500) solveCache.clear(); // simple guard against unbounded growth
+  solveCache.set(key, sol);
+  return sol;
+}
+
+/* =========================================================
+   Catalogue data
+   ========================================================= */
+const CATALOGUE = [
+  {code:'0006', name:'Thin symmetric', aircraft:'Rudders, fins, small tails', tags:['symmetric','thin','tail/fin']},
+  {code:'0009', name:'Symmetric utility', aircraft:'Aerobatic tailplanes', tags:['symmetric','aerobatic']},
+  {code:'0012', name:'Classic symmetric', aircraft:'Helicopter rotors, F-16 stabilator', tags:['symmetric','benchmark']},
+  {code:'0015', name:'Thicker symmetric', aircraft:'Vertical stabilizers', tags:['symmetric','structural']},
+  {code:'0018', name:'Thick symmetric', aircraft:'Wing roots, wind turbine blades', tags:['symmetric','root section']},
+  {code:'2412', name:'Light general aviation', aircraft:'Cessna 152/172 wing', tags:['cambered','GA wing']},
+  {code:'2415', name:'Cambered, thicker', aircraft:'Light twin wings', tags:['cambered','low speed']},
+  {code:'4412', name:'High-camber trainer', aircraft:'Piper Cherokee family', tags:['cambered','high lift']},
+  {code:'4415', name:'High-camber, thick', aircraft:'Sailplane wing sections', tags:['cambered','glider']},
+  {code:'4418', name:'Deep camber, thick root', aircraft:'Wing root sections', tags:['cambered','root section']},
+  {code:'6412', name:'Very high camber', aircraft:'STOL bush planes', tags:['cambered','STOL']},
+  {code:'2408', name:'Thin cambered', aircraft:'Racing / aerobatic wings', tags:['cambered','thin','racing']},
+  {code:'23012', name:'5-digit, high-speed camber', aircraft:'Ryan Navion, many 1930s-50s GA wings', tags:['5-digit','cambered','GA wing']},
+  {code:'23015', name:'5-digit, thicker', aircraft:'Piper Cub-era wings', tags:['5-digit','cambered']},
+  {code:'23021', name:'5-digit, thick root', aircraft:'Older transport wing roots', tags:['5-digit','cambered','root section']},
+  {code:'21012', name:'5-digit, lower camber', aircraft:'Lighter-loaded GA sections', tags:['5-digit','cambered','thin']},
+];
+const TAGSET = ['all','symmetric','cambered','thin','5-digit'];
+
+let currentFilter='all';
+let currentSort='default';
+let currentSearch='';
+
+function renderTabs(){
+  const el = document.getElementById('catTabs');
+  el.innerHTML='';
+  TAGSET.forEach(tag=>{
+    const b=document.createElement('button');
+    b.className='cat-tab'+(tag===currentFilter?' active':'');
+    b.textContent=tag;
+    b.onclick=()=>{currentFilter=tag; renderTabs(); renderGrid();};
+    el.appendChild(b);
+  });
+}
+function airfoilSvgPath(code, w, h, pad){
+  const {upper,lower} = surfacePoints(code, 40);
+  pad = pad===undefined?6:pad;
+  const scaleX = (w-pad*2), scaleY=(h-pad*2);
+  const cy = h/2;
+  const toPx = ([x,y]) => [pad+x*scaleX, cy - y*scaleY*1.8];
+  let d = '';
+  upper.forEach((pt,i)=>{ const [px,py]=toPx(pt); d += (i===0?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' '; });
+  lower.slice().reverse().forEach(pt=>{ const [px,py]=toPx(pt); d += 'L'+px.toFixed(1)+','+py.toFixed(1)+' '; });
+  d += 'Z';
+  return d;
+}
+function refStats(code){
+  const sol = solveCached(code, 4, 32, 1, 0, 0.75, 0);
+  const st = estStats(code, 4, sol.Cl, 1, 0);
+  return {ld: st.ld, stallAngle: st.stallAngle};
+}
+function renderGrid(){
+  const grid = document.getElementById('catalogueGrid');
+  grid.innerHTML='';
+  let list = CATALOGUE.filter(a=>{
+    if(currentSearch){
+      const s = currentSearch.toLowerCase();
+      const hay = (a.code+' '+a.name+' '+a.aircraft+' '+a.tags.join(' ')).toLowerCase();
+      if(!hay.includes(s)) return false;
+    }
+    if(currentFilter==='all') return true;
+    if(currentFilter==='thin') return nacaParams(a.code).t<=0.09;
+    if(currentFilter==='5-digit') return a.code.length===5;
+    return a.tags.includes(currentFilter);
+  });
+  if(currentSort!=='default'){
+    list = list.slice().sort((a,b)=>{
+      if(currentSort==='thin') return nacaParams(a.code).t - nacaParams(b.code).t;
+      if(currentSort==='thick') return nacaParams(b.code).t - nacaParams(a.code).t;
+      const ra=refStats(a.code), rb=refStats(b.code);
+      if(currentSort==='ld') return rb.ld - ra.ld;
+      if(currentSort==='stall') return rb.stallAngle - ra.stallAngle;
+      return 0;
+    });
+  }
+  document.getElementById('gridCount').textContent = list.length+' shown';
+  list.forEach(a=>{
+    const card=document.createElement('div');
+    card.className='card';
+    card.onclick=()=>openAirfoil(a.code, a.name);
+    card.innerHTML = `
+      <div class="card-code">${a.code}</div>
+      <div class="card-name">${a.name}</div>
+      <div class="card-shape"><svg viewBox="0 0 220 64"><path d="${airfoilSvgPath(a.code,220,64)}" fill="#0e8f9522" stroke="#0e8f95" stroke-width="1.5"/></svg></div>
+      <div class="card-aircraft">${a.aircraft||''}</div>
+      <div class="card-tags">${a.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+document.getElementById('catSearch').addEventListener('input', e=>{
+  currentSearch = e.target.value.trim();
+  renderGrid();
+});
+document.getElementById('catSort').addEventListener('change', e=>{
+  currentSort = e.target.value;
+  renderGrid();
+});
+function initHeroSvg(){
+  const svg = document.getElementById('heroSvg');
+  const path = airfoilSvgPath('4412', 400, 300, 30);
+  let html = `<path d="${path}" fill="#0e8f951a" stroke="#0e8f95" stroke-width="2"/>`;
+  for(let i=0;i<9;i++){
+    const y = 60+i*22;
+    html += `<path class="hero-stream" d="M0,${y} Q150,${y-8-i*2} 400,${y-2}" fill="none" stroke="#0e8f95" stroke-width="1" opacity="${0.15+0.05*(9-i)/9}"/>`;
+  }
+  svg.innerHTML = html;
+}
+
+/* =========================================================
+   Navigation
+   ========================================================= */
+function showCatalogue(){
+  document.getElementById('view-catalogue').classList.add('active');
+  document.getElementById('view-detail').classList.remove('active');
+  window.scrollTo(0,0);
+}
+function openCustom(){
+  const raw = document.getElementById('customCode').value.trim();
+  const err = document.getElementById('customError');
+  if(!/^\d{4}$/.test(raw) && !/^\d{5}$/.test(raw)){ err.textContent = 'Enter 4 digits (2412) or 5 digits (23012)'; return; }
+  err.textContent='';
+  openAirfoil(raw, 'Custom profile');
+}
+document.getElementById('customCode').addEventListener('keydown', e=>{ if(e.key==='Enter') openCustom(); });
+
+let activeCode='0012', activeName='Classic symmetric';
+let layers={stream:true, pressure:true};
+let rafId=null, animT=0;
+
+function openAirfoil(code, name){
+  activeCode=code; activeName=name;
+  document.getElementById('detailCode').textContent=code;
+  document.getElementById('detailName').textContent=name;
+  document.getElementById('view-catalogue').classList.remove('active');
+  document.getElementById('view-detail').classList.add('active');
+  window.scrollTo(0,0);
+  updateSim();
+}
+
+function fillSlider(el){
+  const min=parseFloat(el.min), max=parseFloat(el.max), val=parseFloat(el.value);
+  const pct = ((val-min)/(max-min))*100;
+  el.style.background = `linear-gradient(90deg, var(--cyan) ${pct}%, var(--line) ${pct}%)`;
+}
+document.getElementById('aoaSlider').addEventListener('input', e=>{
+  document.getElementById('aoaVal').textContent = e.target.value+'°';
+  fillSlider(e.target);
+  updateSim();
+});
+function toggleLayer(k){
+  layers[k]=!layers[k];
+  document.getElementById(k==='stream'?'toggleStream':'togglePressure').classList.toggle('active', layers[k]);
+}
+
+/* =========================================================
+   Canvas rendering
+   ========================================================= */
+const canvas = document.getElementById('flowCanvas');
+const ctx = canvas.getContext('2d');
+const W=900,H=500;
+const viewX0=-0.7, viewX1=1.9, viewY0=-0.85, viewY1=0.85;
+const PIVOT_X=0.25, PIVOT_Y=0; // quarter-chord: the physics is solved with the flow at angle alpha
+                                 // over a fixed airfoil; for display we instead rotate the airfoil by
+                                 // -alpha about the quarter-chord so the flow always reads left-to-right.
+function toWorld(x,y,alpha){
+  if(!alpha) return [x,y];
+  const dx=x-PIVOT_X, dy=y-PIVOT_Y;
+  const ca=Math.cos(-alpha), sa=Math.sin(-alpha);
+  return [PIVOT_X+dx*ca-dy*sa, PIVOT_Y+dx*sa+dy*ca];
+}
+function toPx(x,y,alpha){
+  const [wx,wy] = toWorld(x,y,alpha);
+  return [ (wx-viewX0)/(viewX1-viewX0)*W, H - (wy-viewY0)/(viewY1-viewY0)*H ];
+}
+
+let cachedStreamlines=[];
+function computeStreamlines(sol, wake){
+  const lines=[];
+  const alpha=sol.alpha;
+  const dirX=Math.cos(alpha), dirY=Math.sin(alpha);
+  const perpX=-dirY, perpY=dirX;
+  const nLines=20;
+  for(let i=0;i<nLines;i++){
+    const s = (i/(nLines-1)-0.5)*1.5;
+    let x = -0.55*dirX + s*perpX + 0.0;
+    let y = -0.55*dirY + s*perpY;
+    const pts=[[x,y]];
+    for(let step=0; step<300; step++){
+      const [u,v] = velocityAt(sol,x,y,true,wake);
+      const speed = Math.hypot(u,v)||1e-6;
+      const dt = 0.014/Math.max(speed,0.25);
+      // midpoint (RK2) — cheaper than RK4, plenty smooth once vortex cores are regularized
+      const [mu,mv] = velocityAt(sol, x+u*dt/2, y+v*dt/2, true, wake);
+      x += mu*dt;
+      y += mv*dt;
+      if(insideAirfoil(x,y,sol.prof,sol.flapDeg,sol.hinge)) break;
+      pts.push([x,y]);
+      if(x>viewX1+0.35 || y>viewY1+0.6 || y<viewY0-0.6) break;
+    }
+    lines.push(pts);
+  }
+  return lines;
+}
+
+/* =========================================================
+   Unsteady wake: discrete shed vortices, alternating sign,
+   advected by the full field (bound solution + each other).
+   A crude but genuine discrete-vortex wake model — this is
+   what actually produces the swirling/eddying look, rather
+   than a scripted animation.
+   ========================================================= */
+let wake = [];
+let shedTimer = 0, shedSign = 1;
+function stepWake(sol, overStall, alphaDeg, stallAngle){
+  const V = Math.max(sol.Vinf, 0.15);
+  // shedding frequency scales with speed (roughly Strouhal-like: faster flow sheds more often)
+  const freq = Math.max(2, Math.round(9/V));
+  shedTimer++;
+  if(shedTimer>=freq){
+    shedTimer=0;
+    shedSign*=-1;
+    if(overStall){
+      // separated flow: shed a more energetic alternating pair from an upstream-shifted
+      // separation point on the suction side, like a bluff-body vortex street
+      const excess = Math.min(1, (Math.abs(alphaDeg)-stallAngle)/10);
+      const xSep = Math.max(0.35, 0.92 - excess*0.4);
+      const {yc} = camberEff(Math.min(xSep,1), sol.prof, sol.flapDeg, sol.hinge);
+      const yt = thicknessAt(Math.min(xSep,1), sol.prof.t);
+      const strength = (0.09+0.10*excess) * V * shedSign;
+      wake.push({x:xSep, y:yc+yt*1.05, gamma:strength, age:0});
+    } else {
+      // attached flow: faint, orderly trailing-edge wake — every real airfoil sheds a little
+      const strength = 0.018*V*shedSign;
+      wake.push({x:1.0, y:0, gamma:strength, age:0});
+    }
+  }
+  const dtStep = 0.05*V;
+  const next = [];
+  for(let i=0;i<wake.length;i++){
+    const wv = wake[i];
+    let u = sol.Vinf*Math.cos(sol.alpha), v = sol.Vinf*Math.sin(sol.alpha);
+    for(let j=0;j<sol.vx.length;j++){
+      const dx=wv.x-sol.vx[j], dy=wv.y-sol.vy[j];
+      const r2=Math.max(dx*dx+dy*dy,0.00055);
+      u += -(sol.gamma[j]/(2*Math.PI))*dy/r2; v += (sol.gamma[j]/(2*Math.PI))*dx/r2;
+    }
+    for(let j=0;j<sol.sx.length;j++){
+      const dx=wv.x-sol.sx[j], dy=wv.y-sol.sy[j];
+      const r2=Math.max(dx*dx+dy*dy,0.00055);
+      const q=sol.Q[j]*sol.Vinf;
+      u += (q/(2*Math.PI))*dx/r2; v += (q/(2*Math.PI))*dy/r2;
+    }
+    for(let j=0;j<wake.length;j++){
+      if(j===i) continue;
+      const wo=wake[j];
+      const dx=wv.x-wo.x, dy=wv.y-wo.y;
+      const r2=Math.max(dx*dx+dy*dy,0.0011);
+      u += -(wo.gamma/(2*Math.PI))*dy/r2; v += (wo.gamma/(2*Math.PI))*dx/r2;
+    }
+    wv.x += u*dtStep; wv.y += v*dtStep;
+    wv.gamma *= 0.984; // viscous dissipation — sheds fade rather than persist forever
+    wv.age++;
+    if(wv.x < viewX1+0.5 && Math.abs(wv.gamma)>0.003 && wv.age<500) next.push(wv);
+  }
+  wake = next;
+  if(wake.length>70) wake = wake.slice(wake.length-70);
+}
+
+function surfaceCp(sol, code){
+  const {upper, lower} = surfacePoints(code, 60, sol.flapDeg, sol.hinge);
+  function cpFor(pts, sign){
+    return pts.map(([x,y])=>{
+      // sample slightly outside surface along approx normal
+      const eps=0.006*sign;
+      const [u,v]=velocityAt(sol, x, y+eps);
+      const speed2 = u*u+v*v;
+      const cp = 1 - speed2/(sol.Vinf*sol.Vinf);
+      return cp;
+    });
+  }
+  return { upperCp: cpFor(upper,1), lowerCp: cpFor(lower,-1), upper, lower };
+}
+function cpColor(cp){
+  // cp typically ranges ~ -4 (suction peak) to +1 (stagnation)
+  const t = Math.max(-1, Math.min(1, cp/2.2)); // normalize
+  if(t>0){
+    // positive cp -> high pressure (hi color), scale 0..1
+    const a = Math.min(1,t);
+    return `rgba(200,67,58,${0.25+0.6*a})`;
+  } else {
+    const a = Math.min(1,-t);
+    return `rgba(47,111,196,${0.25+0.6*a})`;
+  }
+}
+
+function drawFrame(sol, cpData, dt, wake){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#f7fafc';
+  ctx.fillRect(0,0,W,H);
+
+  // background grid — stays fixed (this is the wind-tunnel reference frame; the model rotates in it)
+  ctx.strokeStyle='#e3eaef'; ctx.lineWidth=1;
+  for(let gx=0; gx<W; gx+=40){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for(let gy=0; gy<H; gy+=40){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  // freestream direction arrows, far upstream, always horizontal — the flow, not the model, is the fixed reference
+  ctx.strokeStyle='#a9b8c4'; ctx.fillStyle='#a9b8c4'; ctx.lineWidth=1.3;
+  for(let r=0;r<5;r++){
+    const py = 60+r*95;
+    ctx.beginPath(); ctx.moveTo(18,py); ctx.lineTo(52,py); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(52,py); ctx.lineTo(45,py-4); ctx.lineTo(45,py+4); ctx.closePath(); ctx.fill();
+  }
+
+  const alpha = sol.alpha;
+
+  // streamlines — solid guide + flowing dashes to read as moving air, not static wires
+  if(layers.stream){
+    cachedStreamlines.forEach((pts,li)=>{
+      if(pts.length<2) return;
+      const px0 = toPx(pts[0][0],pts[0][1],alpha);
+      ctx.beginPath(); ctx.moveTo(px0[0],px0[1]);
+      for(let i=1;i<pts.length;i++){ const p=toPx(pts[i][0],pts[i][1],alpha); ctx.lineTo(p[0],p[1]); }
+      ctx.strokeStyle='rgba(14,143,149,0.22)';
+      ctx.lineWidth=1.1;
+      ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.stroke();
+
+      // moving highlight dashes = flow direction
+      ctx.beginPath(); ctx.moveTo(px0[0],px0[1]);
+      for(let i=1;i<pts.length;i++){ const p=toPx(pts[i][0],pts[i][1],alpha); ctx.lineTo(p[0],p[1]); }
+      ctx.strokeStyle='rgba(18,166,172,0.85)';
+      ctx.lineWidth=1.4;
+      ctx.setLineDash([3,16]);
+      ctx.lineDashOffset = -dt*1.1 - li*4;
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // shed vortices — the actual swirls, drawn as small rotating spiral glyphs
+    if(wake && wake.length){
+      wake.forEach(wv=>{
+        const [px,py] = toPx(wv.x, wv.y, alpha);
+        const strength = Math.min(1, Math.abs(wv.gamma)*9);
+        const rad = 5 + strength*7;
+        const spin = wv.gamma>0 ? 1 : -1;
+        const col = wv.gamma>0 ? '47,111,196' : '200,67,58';
+        ctx.strokeStyle = `rgba(${col},${0.25+0.5*strength})`;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        const turns = 1.6, segs = 14;
+        for(let s=0;s<=segs;s++){
+          const tt = s/segs;
+          const ang = spin*tt*turns*2*Math.PI + dt*0.05;
+          const rr = rad*tt;
+          const sx = px+rr*Math.cos(ang), sy = py+rr*Math.sin(ang);
+          if(s===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+        }
+        ctx.stroke();
+      });
+    }
+  }
+
+  // airfoil body with pressure coloring (rotated by alpha — this is the model, it pitches)
+  const {upper, lower, upperCp, lowerCp} = cpData;
+  if(layers.pressure){
+    for(let i=0;i<upper.length-1;i++){
+      const [x1,y1]=toPx(upper[i][0],upper[i][1],alpha);
+      const [x2,y2]=toPx(upper[i+1][0],upper[i+1][1],alpha);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      ctx.strokeStyle=cpColor(upperCp[i]);
+      ctx.lineWidth=7; ctx.lineCap='round';
+      ctx.stroke();
+    }
+    for(let i=0;i<lower.length-1;i++){
+      const [x1,y1]=toPx(lower[i][0],lower[i][1],alpha);
+      const [x2,y2]=toPx(lower[i+1][0],lower[i+1][1],alpha);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      ctx.strokeStyle=cpColor(lowerCp[i]);
+      ctx.lineWidth=7; ctx.lineCap='round';
+      ctx.stroke();
+    }
+  }
+  // crisp outline + fill on top
+  ctx.beginPath();
+  upper.forEach(([x,y],i)=>{ const [px,py]=toPx(x,y,alpha); if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+  lower.slice().reverse().forEach(([x,y])=>{ const [px,py]=toPx(x,y,alpha); ctx.lineTo(px,py); });
+  ctx.closePath();
+  ctx.fillStyle='#182530';
+  ctx.fill();
+  ctx.strokeStyle='#0e1720';
+  ctx.lineWidth=1.6;
+  ctx.stroke();
+
+  // chord line (rotates with the model) + AoA arc against the fixed flow line
+  const [cx0,cy0]=toPx(-0.15,0,alpha), [cx1,cy1]=toPx(1.15,0,alpha);
+  ctx.strokeStyle='#9fb0bd'; ctx.setLineDash([3,4]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx0,cy0); ctx.lineTo(cx1,cy1); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if(Math.abs(alpha)>0.01){
+    const pivotPx = toPx(PIVOT_X,PIVOT_Y,alpha);
+    const chordPx = toPx(PIVOT_X-0.32,PIVOT_Y,alpha);
+    const flowPx  = toPx(PIVOT_X-0.32,PIVOT_Y,0);
+    const a1 = Math.atan2(chordPx[1]-pivotPx[1], chordPx[0]-pivotPx[0]);
+    const a2 = Math.atan2(flowPx[1]-pivotPx[1], flowPx[0]-pivotPx[0]);
+    ctx.beginPath();
+    ctx.arc(pivotPx[0],pivotPx[1],30, a1, a2);
+    ctx.strokeStyle='#b8720a'; ctx.lineWidth=1.4;
+    ctx.stroke();
+  }
+}
+
+let windSpeed = 1;
+let flapDeg = 0, groundH = 0;
+const SPEED_REF_MS = 15; // Vinf=1 slider unit ≈ 15 m/s, just to give the lift number a tangible scale
+const GROUND_HEIGHTS = [0, 2.0, 1.0, 0.6, 0.35, 0.18]; // slider steps 0..5 -> chords above ground (0 = off)
+let currentAlphaDeg = 4, currentStallAngle = 14;
+
+function updateSim(){
+  currentAlphaDeg = parseFloat(document.getElementById('aoaSlider').value);
+  const sol = solveAirfoil(activeCode, currentAlphaDeg, 40, windSpeed, flapDeg, 0.75, groundH);
+  const st = estStats(activeCode, currentAlphaDeg, sol.Cl, windSpeed, flapDeg);
+  currentStallAngle = st.stallAngle;
+  document.getElementById('statCl').textContent = sol.Cl.toFixed(2);
+  document.getElementById('statCd').textContent = st.cd.toFixed(3);
+  document.getElementById('statLD').textContent = st.ld.toFixed(1);
+  document.getElementById('statStall').textContent = '±'+st.stallAngle.toFixed(1)+'°';
+  document.getElementById('statRe').textContent = (st.Re/1e6).toFixed(2)+'M';
+  const stallEl = document.getElementById('stallFlag');
+  stallEl.classList.toggle('show', st.overStall);
+  document.getElementById('statCd').classList.toggle('warn', st.overStall);
+
+  const vActual = windSpeed*SPEED_REF_MS;
+  const q = 0.5*1.225*vActual*vActual;
+  const liftPerSpan = q*1.0*sol.Cl; // chord = 1 m
+  document.getElementById('statLift').textContent = liftPerSpan.toFixed(0)+' N/m';
+  document.getElementById('statQ').textContent = q.toFixed(0)+' Pa';
+
+  wake = []; shedTimer = 0; shedSign = 1;
+  const cpData = surfaceCp(sol, activeCode);
+  cachedStreamlines = computeStreamlines(sol, wake);
+  updateTopReadout();
+  writeShareHash();
+  if(document.getElementById('polarPanel').classList.contains('open')) drawPolars();
+
+  if(rafId) cancelAnimationFrame(rafId);
+  animT=0;
+  let tick=0;
+  const physicsEvery = 3; // recompute wake + streamlines at ~1/3 display rate — plenty for how fast eddies actually evolve
+  function loop(){
+    animT+=1; tick++;
+    if(tick % physicsEvery === 0){
+      stepWake(sol, st.overStall, currentAlphaDeg, currentStallAngle);
+      cachedStreamlines = computeStreamlines(sol, wake);
+    }
+    drawFrame(sol, cpData, animT, wake);
+    rafId=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function updateTopReadout(){
+  const vActual = (windSpeed*SPEED_REF_MS).toFixed(0);
+  document.getElementById('topReadout').innerHTML =
+    `<span><b>ρ</b> 1.225 kg/m³</span><span><b>chord</b> 1.0 m</span><span><b>V∞</b> ${vActual} m/s</span>`;
+}
+
+document.getElementById('windSlider').addEventListener('input', e=>{
+  windSpeed = parseFloat(e.target.value);
+  document.getElementById('windVal').textContent = (windSpeed*SPEED_REF_MS).toFixed(0)+' m/s';
+  fillSlider(document.getElementById('windSlider'));
+  updateSim();
+});
+document.getElementById('flapSlider').addEventListener('input', e=>{
+  flapDeg = parseFloat(e.target.value);
+  document.getElementById('flapVal').textContent = flapDeg+'°';
+  fillSlider(document.getElementById('flapSlider'));
+  updateSim();
+});
+document.getElementById('groundSlider').addEventListener('input', e=>{
+  const step = parseInt(e.target.value);
+  groundH = GROUND_HEIGHTS[step];
+  document.getElementById('groundVal').textContent = step===0 ? 'Off' : groundH.toFixed(2)+' c altitude';
+  fillSlider(document.getElementById('groundSlider'));
+  updateSim();
+});
+
+// arrow-key nudge for AoA anywhere on the detail view (not while typing elsewhere)
+document.addEventListener('keydown', e=>{
+  if(!document.getElementById('view-detail').classList.contains('active')) return;
+  if(document.activeElement && ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName) && document.activeElement.type!=='range') return;
+  const slider = document.getElementById('aoaSlider');
+  if(e.key==='ArrowRight' || e.key==='ArrowUp'){
+    slider.value = Math.min(parseFloat(slider.max), parseFloat(slider.value)+1);
+    slider.dispatchEvent(new Event('input'));
+    e.preventDefault();
+  } else if(e.key==='ArrowLeft' || e.key==='ArrowDown'){
+    slider.value = Math.max(parseFloat(slider.min), parseFloat(slider.value)-1);
+    slider.dispatchEvent(new Event('input'));
+    e.preventDefault();
+  }
+});
+
+/* =========================================================
+   Shareable URL state
+   ========================================================= */
+function writeShareHash(){
+  const h = `code=${activeCode}&aoa=${currentAlphaDeg}&wind=${windSpeed.toFixed(1)}&flap=${flapDeg}&ground=${groundH}`;
+  history.replaceState(null,'','#'+h);
+}
+function copyShareLink(evt){
+  const url = location.href;
+  if(navigator.clipboard) navigator.clipboard.writeText(url).catch(()=>{});
+  const btn = evt ? evt.target : null;
+  if(!btn) return;
+  const old = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(()=>btn.textContent=old, 1400);
+}
+function readShareHash(){
+  const params = new URLSearchParams(location.hash.slice(1));
+  if(!params.has('code')) return false;
+  const code = params.get('code');
+  if(!/^\d{4}$/.test(code) && !/^\d{5}$/.test(code)) return false;
+  activeCode = code; activeName = 'Shared setup';
+  if(params.has('aoa')) document.getElementById('aoaSlider').value = params.get('aoa');
+  if(params.has('wind')){ windSpeed = parseFloat(params.get('wind')); document.getElementById('windSlider').value = windSpeed; }
+  if(params.has('flap')){ flapDeg = parseFloat(params.get('flap')); document.getElementById('flapSlider').value = flapDeg; }
+  if(params.has('ground')){
+    groundH = parseFloat(params.get('ground'));
+    const idx = GROUND_HEIGHTS.reduce((bi,gv,i)=>Math.abs(gv-groundH)<Math.abs(GROUND_HEIGHTS[bi]-groundH)?i:bi, 0);
+    document.getElementById('groundSlider').value = idx;
+  }
+  document.getElementById('aoaVal').textContent = document.getElementById('aoaSlider').value+'°';
+  document.getElementById('windVal').textContent = (windSpeed*SPEED_REF_MS).toFixed(0)+' m/s';
+  document.getElementById('flapVal').textContent = flapDeg+'°';
+  document.getElementById('groundVal').textContent = groundH>0 ? groundH.toFixed(2)+' c altitude' : 'Off';
+  return true;
+}
+
+/* =========================================================
+   How-it-works collapsible
+   ========================================================= */
+function toggleInfo(){
+  const body = document.getElementById('infoBody');
+  const open = body.classList.toggle('open');
+  document.getElementById('infoCaret').textContent = open ? '▴' : '▾';
+}
+
+/* =========================================================
+   Polar charts — Cl vs alpha, and the classic drag polar
+   ========================================================= */
+function svgLine(pts, color, width){
+  let d='';
+  pts.forEach(([x,y],i)=>{ d += (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)+' '; });
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width||1.6}"/>`;
+}
+function drawPolars(){
+  const W=380,H=240, padL=38,padR=14,padT=14,padB=28;
+  const alphas=[]; for(let a=-14;a<=20;a+=2) alphas.push(a);
+  const pts = alphas.map(a=>{
+    const sol = solveCached(activeCode, a, 32, windSpeed, flapDeg, 0.75, groundH);
+    const st = estStats(activeCode, a, sol.Cl, windSpeed, flapDeg);
+    return {a, cl:sol.Cl, cd:st.cd};
+  });
+
+  // Cl vs alpha
+  const clMax = Math.max(1, ...pts.map(p=>Math.abs(p.cl)))*1.15;
+  const xOf = a => padL + (a+16)/(36)*(W-padL-padR);
+  const yOfCl = cl => H-padB - (cl+clMax)/(2*clMax)*(H-padT-padB);
+  let svg1 = `<line x1="${padL}" y1="${yOfCl(0)}" x2="${W-padR}" y2="${yOfCl(0)}" stroke="#d7e0e8"/>`;
+  svg1 += `<line x1="${xOf(0)}" y1="${padT}" x2="${xOf(0)}" y2="${H-padB}" stroke="#d7e0e8"/>`;
+  svg1 += svgLine(pts.map(p=>[xOf(p.a), yOfCl(p.cl)]), '#0e8f95');
+  const curX = xOf(currentAlphaDeg), curSol = solveCached(activeCode,currentAlphaDeg,32,windSpeed,flapDeg,0.75,groundH);
+  svg1 += `<circle cx="${curX}" cy="${yOfCl(curSol.Cl)}" r="4" fill="#b8720a"/>`;
+  svg1 += `<text x="${padL}" y="${H-8}" font-size="9" fill="#788ba0" font-family="monospace">α (deg)</text>`;
+  svg1 += `<text x="4" y="${padT+8}" font-size="9" fill="#788ba0" font-family="monospace">Cl</text>`;
+  document.getElementById('polarCl').innerHTML = svg1;
+
+  // drag polar: Cd (x) vs Cl (y)
+  const cdMax = Math.max(0.05, ...pts.map(p=>p.cd))*1.15;
+  const xOfCd = cd => padL + cd/cdMax*(W-padL-padR);
+  let svg2 = `<line x1="${padL}" y1="${yOfCl(0)}" x2="${W-padR}" y2="${yOfCl(0)}" stroke="#d7e0e8"/>`;
+  svg2 += svgLine(pts.map(p=>[xOfCd(p.cd), yOfCl(p.cl)]), '#c8433a');
+  svg2 += `<circle cx="${xOfCd(curSol ? estStats(activeCode,currentAlphaDeg,curSol.Cl,windSpeed,flapDeg).cd : 0)}" cy="${yOfCl(curSol.Cl)}" r="4" fill="#b8720a"/>`;
+  svg2 += `<text x="${padL}" y="${H-8}" font-size="9" fill="#788ba0" font-family="monospace">Cd</text>`;
+  svg2 += `<text x="4" y="${padT+8}" font-size="9" fill="#788ba0" font-family="monospace">Cl</text>`;
+  document.getElementById('polarDrag').innerHTML = svg2;
+}
+function togglePolar(){
+  const panel = document.getElementById('polarPanel');
+  const open = panel.classList.toggle('open');
+  document.getElementById('togglePolar').classList.toggle('active', open);
+  if(open) drawPolars();
+}
+
+/* =========================================================
+   Compare mode — static snapshot of two airfoils side by side
+   ========================================================= */
+function populateCompareSelects(){
+  ['compareA','compareB'].forEach((id,i)=>{
+    const sel = document.getElementById(id);
+    sel.innerHTML = CATALOGUE.map(a=>`<option value="${a.code}">${a.code} — ${a.name}</option>`).join('');
+    sel.value = i===0 ? '0012' : '2412';
+    sel.onchange = renderCompare;
+  });
+}
+function renderCompareSide(code, svgId, statsId){
+  const sol = solveCached(code, currentAlphaDeg, 40, windSpeed, flapDeg, 0.75, groundH);
+  const st = estStats(code, currentAlphaDeg, sol.Cl, windSpeed, flapDeg);
+  const cp = surfaceCp(sol, code);
+  const W=420,H=260;
+  const scale=280, ox=60, oy=150;
+  const toPx = ([x,y])=>[ox+x*scale, oy-y*scale*1.4];
+  let svg='';
+  for(let i=0;i<cp.upper.length-1;i++){
+    const [x1,y1]=toPx(cp.upper[i]), [x2,y2]=toPx(cp.upper[i+1]);
+    svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${cpColor(cp.upperCp[i])}" stroke-width="6" stroke-linecap="round"/>`;
+  }
+  for(let i=0;i<cp.lower.length-1;i++){
+    const [x1,y1]=toPx(cp.lower[i]), [x2,y2]=toPx(cp.lower[i+1]);
+    svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${cpColor(cp.lowerCp[i])}" stroke-width="6" stroke-linecap="round"/>`;
+  }
+  svg += `<path d="${airfoilSvgPathFromPts(cp.upper,cp.lower,toPx)}" fill="none" stroke="#152029" stroke-width="1.4"/>`;
+  document.getElementById(svgId).innerHTML = svg;
+  document.getElementById(statsId).innerHTML =
+    `<span>Cl <b>${sol.Cl.toFixed(2)}</b></span><span>Cd <b>${st.cd.toFixed(3)}</b></span><span>L/D <b>${st.ld.toFixed(1)}</b></span><span>Stall <b>±${st.stallAngle.toFixed(1)}°</b></span>`;
+}
+function airfoilSvgPathFromPts(upper,lower,toPx){
+  let d='';
+  upper.forEach((pt,i)=>{ const [px,py]=toPx(pt); d+=(i===0?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' '; });
+  lower.slice().reverse().forEach(pt=>{ const [px,py]=toPx(pt); d+='L'+px.toFixed(1)+','+py.toFixed(1)+' '; });
+  return d+'Z';
+}
+function renderCompare(){
+  renderCompareSide(document.getElementById('compareA').value, 'compareSvgA', 'compareStatsA');
+  renderCompareSide(document.getElementById('compareB').value, 'compareSvgB', 'compareStatsB');
+}
+function openCompare(){
+  const panel = document.getElementById('comparePanel');
+  const opening = !panel.classList.contains('open');
+  panel.classList.toggle('open', opening);
+  document.getElementById('toggleCompare').classList.toggle('active', opening);
+  if(opening){ populateCompareSelects(); renderCompare(); }
+}
+function closeCompare(){
+  document.getElementById('comparePanel').classList.remove('open');
+  document.getElementById('toggleCompare').classList.remove('active');
+}
+
+/* =========================================================
+   Init
+   ========================================================= */
+document.getElementById('statCount').textContent = CATALOGUE.length;
+renderTabs();
+renderGrid();
+initHeroSvg();
+updateTopReadout();
+fillSlider(document.getElementById('aoaSlider'));
+fillSlider(document.getElementById('windSlider'));
+fillSlider(document.getElementById('flapSlider'));
+fillSlider(document.getElementById('groundSlider'));
+
+if(readShareHash()){
+  document.getElementById('detailCode').textContent = activeCode;
+  document.getElementById('detailName').textContent = activeName;
+  document.getElementById('view-catalogue').classList.remove('active');
+  document.getElementById('view-detail').classList.add('active');
+  fillSlider(document.getElementById('aoaSlider'));
+  fillSlider(document.getElementById('windSlider'));
+  fillSlider(document.getElementById('flapSlider'));
+  fillSlider(document.getElementById('groundSlider'));
+  updateSim();
+}
+
+</script>
+</body>
+</html>
